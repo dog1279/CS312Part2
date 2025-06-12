@@ -1,0 +1,17 @@
+[Unit]
+Description=Minecraft Server
+After=network.target
+
+[Service]
+Type=simple
+User=minecraft
+Group=minecraft
+WorkingDirectory=/opt/minecraft/server
+ExecStart=/opt/minecraft/start-minecraft.sh
+ExecStop=/bin/kill -TERM $MAINPID
+TimeoutStopSec=30
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

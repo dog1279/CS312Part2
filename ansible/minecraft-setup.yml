@@ -1,0 +1,96 @@
+---
+- name: Setup Minecraft Server
+  hosts: minecraft_servers
+  become: yes
+  vars:
+    minecraft_version: "1.21.5"
+    minecraft_port: 25565
+    minecraft_max_memory: "4G"
+    minecraft_min_memory: "2G"
+
+  tasks:
+    - name: Update system packages
+      apt:
+        update_cache: yes
+        upgrade: yes
+
+    - name: Install Java 22
+      apt:
+        name: openjdk-22-jdk
+        state: present
+
+    - name: Create minecraft user
+      user:
+        name: minecraft
+        system: yes
+        shell: /bin/bash
+        home: /opt/minecraft
+        create_home: yes
+
+    - name: Create minecraft directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: minecraft
+        group: minecraft
+        mode: '0755'
+      loop:
+        - /opt/minecraft
+        - /opt/minecraft/server
+
+    - name: Download Minecraft server
+      get_url:
+        url: "https://piston-data.mojang.com/v1/objects/e6ec2f64e6080b9b5d9b471b291c33cc7f509733/server.jar"
+        dest: /opt/minecraft/server/minecraft_server.jar
+        owner: minecraft
+        group: minecraft
+        mode: '0644'
+
+    - name: Accept EULA
+      copy:
+        content: "eula=true\n"
+        dest: /opt/minecraft/server/eula.txt
+        owner: minecraft
+        group: minecraft
+        mode: '0644'
+
+    - name: Create server.properties
+      template:
+        src: server.properties.j2
+        dest: /opt/minecraft/server/server.properties
+        owner: minecraft
+        group: minecraft
+        mode: '0644'
+
+    - name: Create startup script
+      template:
+        src: start-minecraft.sh.j2
+        dest: /opt/minecraft/start-minecraft.sh
+        owner: minecraft
+        group: minecraft
+        mode: '0755'
+
+    - name: Create systemd service
+      template:
+        src: minecraft.service.j2
+        dest: /etc/systemd/system/minecraft.service
+        mode: '0644'
+      notify:
+        - reload systemd
+        - start minecraft
+
+    - name: Enable minecraft service
+      systemd:
+        name: minecraft
+        enabled: yes
+        daemon_reload: yes
+
+  handlers:
+    - name: reload systemd
+      systemd:
+        daemon_reload: yes
+
+    - name: start minecraft
+      systemd:
+        name: minecraft
+        state: started
